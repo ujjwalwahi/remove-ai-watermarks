@@ -267,6 +267,9 @@ schema, compatibility restrictions, and oracle caveats.
 See the [installation guide](docs/installation.md) for Homebrew, uv, optional
 features, and development setup.
 
+To deploy an image-cleaning API on Runpod Serverless, build the supplied CUDA
+worker image and follow the [Runpod guide](docs/runpod.md).
+
 ## Examples
 
 ### Visible Gemini mark

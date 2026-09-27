@@ -1,0 +1,98 @@
+# Runpod Serverless endpoint
+
+The [worker image](../Dockerfile.runpod) installs this repository's image
+processing package and starts a queue-based Runpod Serverless handler. The
+endpoint accepts PNG, JPEG, or WebP image bytes as base64 JSON and returns the
+cleaned image in the same format. It supports `all` (default), `visible`, and
+`metadata` modes. The `all` mode runs the library's visible, invisible, and
+metadata pipeline; the invisible stage runs only when there is local evidence
+or when you set `force` to `true`.
+
+## Build and deploy
+
+Build a Linux x86-64 image and push it to a registry Runpod can access:
+
+```bash
+docker build --platform linux/amd64 -f Dockerfile.runpod -t YOUR_REGISTRY/remove-ai-watermarks:runpod .
+docker push YOUR_REGISTRY/remove-ai-watermarks:runpod
+```
+
+In the Runpod console, create a **Serverless** endpoint, import the image from
+the registry, and select the **Queue** endpoint type with an NVIDIA GPU. Give the
+container disk room for the image, Python dependencies, and downloaded model
+weights. Diffusion model loading can be slow on the first request. Set `HF_TOKEN`
+as an endpoint environment variable if a chosen model requires access.
+
+For persistent model downloads, attach a network volume and set endpoint
+environment variables `HF_HOME=/runpod-volume/huggingface` and
+`XDG_CACHE_HOME=/runpod-volume/.cache`. Runpod mounts an attached Serverless
+network volume at `/runpod-volume`. Without one, the image uses the worker's
+ephemeral `/root/.cache`.
+
+## Send a request
+
+The JSON envelope is `{"input": {...}}`. `image_base64` can be plain base64 or a
+base64 data URL. Input and output image bytes each have a 16 MiB limit.
+
+```json
+{
+  "input": {
+    "mode": "all",
+    "image_base64": "BASE64_IMAGE_BYTES",
+    "force": false,
+    "backend": "cv2",
+    "sensitivity": "auto",
+    "cpu_offload": false
+  }
+}
+```
+
+To call the deployed endpoint from Python:
+
+```python
+import base64
+import os
+import time
+from pathlib import Path
+
+import requests
+
+image = Path("input.png").read_bytes()
+response = requests.post(
+    "https://api.runpod.ai/v2/YOUR_ENDPOINT_ID/run",
+    headers={"Authorization": f"Bearer {os.environ['RUNPOD_API_KEY']}"},
+    json={"input": {"mode": "all", "image_base64": base64.b64encode(image).decode(), "force": True}},
+    timeout=30,
+)
+response.raise_for_status()
+job_id = response.json()["id"]
+while True:
+    status_response = requests.get(
+        f"https://api.runpod.ai/v2/YOUR_ENDPOINT_ID/status/{job_id}",
+        headers={"Authorization": f"Bearer {os.environ['RUNPOD_API_KEY']}"},
+        timeout=30,
+    )
+    status_response.raise_for_status()
+    result = status_response.json()
+    if result["status"] == "COMPLETED":
+        break
+    if result["status"] in {"FAILED", "CANCELLED", "TIMED_OUT"}:
+        raise RuntimeError(result)
+    time.sleep(5)
+
+Path("clean.png").write_bytes(base64.b64decode(result["output"]["image_base64"]))
+print(result["output"]["invisible_status"])
+```
+
+The output also reports `visible_status`, `invisible_status`, and
+`metadata_status` for `all` mode. An invisible status of `no-signal` means no
+regeneration ran; it is not a clean-image verdict. For a quick image, `/runsync`
+can return the output directly. Use `/run` for diffusion jobs that may take
+longer than the synchronous wait period.
+
+Invalid input and processing failures cause a failed Runpod job. The handler
+cleans up per-job temporary files. It does not accept remote URLs or video files.
+
+See Runpod's [Serverless quickstart](https://docs.runpod.io/serverless/quickstart)
+for endpoint deployment and [request guide](https://docs.runpod.io/serverless/endpoints/send-requests)
+for `/run`, `/runsync`, and `/status` behavior.
