@@ -28,15 +28,24 @@ downloaded model weights. Diffusion model loading can be slow on the first
 request. Set `HF_TOKEN` as an endpoint environment variable if a chosen model
 requires access.
 
-For `all` mode, attach a network volume with at least 150 GB free and set
-endpoint environment variables `HF_HOME=/runpod-volume/huggingface` and
-`XDG_CACHE_HOME=/runpod-volume/.cache`. Runpod mounts an attached Serverless
-network volume at `/runpod-volume`. The Qwen-Image-2512 and Z-Image-Turbo
-model repositories alone contain roughly 91 GB of weights, with additional
-ControlNet and LoRA weights plus download and offload working space. Without a
-volume, the image uses the worker's ephemeral `/root/.cache`; a failed model
-download can surface as a Hugging Face Xet "Background writer channel closed"
-error. Check the worker logs and available disk space if that happens. Increase
+For `all` mode, attach a network volume with at least 150 GB free. Runpod
+mounts an attached Serverless volume at `/runpod-volume`. Set these endpoint
+environment variables on an already deployed worker:
+
+```text
+DIFFSYNTH_MODEL_BASE_PATH=/runpod-volume/models
+HF_HOME=/runpod-volume/huggingface
+XDG_CACHE_HOME=/runpod-volume/.cache
+```
+
+New builds of this Dockerfile set the same defaults. `DIFFSYNTH_MODEL_BASE_PATH`
+is essential: DiffSynth downloads model weights to `./models` by default, so
+`HF_HOME` alone does not move them off the worker's small container disk. The
+Qwen-Image-2512 and Z-Image-Turbo model repositories contain roughly 91 GB of
+weights, with additional ControlNet and LoRA weights plus working space.
+"No space left on device" or a Hugging Face Xet "Background writer channel
+closed" error during model loading usually means one of these locations lacks
+free space. Check the worker logs and the volume's remaining capacity. Increase
 the endpoint's execution timeout above the default 600 seconds for the first
 model download; 3600 seconds is a starting point, then tune it after a
 successful job.

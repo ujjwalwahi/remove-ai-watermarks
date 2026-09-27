@@ -5,8 +5,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     VIRTUAL_ENV=/opt/venv \
     PATH=/opt/venv/bin:$PATH \
-    HF_HOME=/root/.cache/huggingface \
-    XDG_CACHE_HOME=/root/.cache
+    HF_HOME=/runpod-volume/huggingface \
+    XDG_CACHE_HOME=/runpod-volume/.cache \
+    DIFFSYNTH_MODEL_BASE_PATH=/runpod-volume/models
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.12 \
