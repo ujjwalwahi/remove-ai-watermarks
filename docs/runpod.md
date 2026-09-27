@@ -1,6 +1,6 @@
 # Runpod Serverless endpoint
 
-The [worker image](../Dockerfile.runpod) installs this repository's image
+The [worker image](../Dockerfile) installs this repository's image
 processing package and starts a queue-based Runpod Serverless handler. The
 endpoint accepts PNG, JPEG, or WebP image bytes as base64 JSON and returns the
 cleaned image in the same format. It supports `all` (default), `visible`, and
@@ -13,15 +13,20 @@ or when you set `force` to `true`.
 Build a Linux x86-64 image and push it to a registry Runpod can access:
 
 ```bash
-docker build --platform linux/amd64 -f Dockerfile.runpod -t YOUR_REGISTRY/remove-ai-watermarks:runpod .
+docker build --platform linux/amd64 -t YOUR_REGISTRY/remove-ai-watermarks:runpod .
 docker push YOUR_REGISTRY/remove-ai-watermarks:runpod
 ```
 
-In the Runpod console, create a **Serverless** endpoint, import the image from
-the registry, and select the **Queue** endpoint type with an NVIDIA GPU. Give the
-container disk room for the image, Python dependencies, and downloaded model
-weights. Diffusion model loading can be slow on the first request. Set `HF_TOKEN`
-as an endpoint environment variable if a chosen model requires access.
+You can also import this GitHub repository directly in the Runpod Serverless
+console. Select the `main` branch and set **Dockerfile Path** to `Dockerfile`.
+The handler is the root-level `handler.py`; it starts the worker with
+`runpod.serverless.start`.
+
+For either deployment route, select the **Queue** endpoint type with an NVIDIA
+GPU. Give the container disk room for the image, Python dependencies, and
+downloaded model weights. Diffusion model loading can be slow on the first
+request. Set `HF_TOKEN` as an endpoint environment variable if a chosen model
+requires access.
 
 For persistent model downloads, attach a network volume and set endpoint
 environment variables `HF_HOME=/runpod-volume/huggingface` and

@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import runpod_handler
+import handler
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"test image payload"
 
@@ -18,11 +18,11 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"test image payload"
 class RunpodHandlerTests(unittest.TestCase):
     def test_rejects_invalid_input_before_processing(self) -> None:
         with self.assertRaisesRegex(ValueError, "base64"):
-            runpod_handler.handler({"input": {"image_base64": "not valid base64"}})
+            handler.handler({"input": {"image_base64": "not valid base64"}})
         with self.assertRaisesRegex(ValueError, "mode"):
-            runpod_handler.handler({"input": {"mode": "command", "image_base64": base64.b64encode(PNG).decode()}})
+            handler.handler({"input": {"mode": "command", "image_base64": base64.b64encode(PNG).decode()}})
         with self.assertRaisesRegex(ValueError, "force"):
-            runpod_handler.handler({"input": {"force": "true", "image_base64": base64.b64encode(PNG).decode()}})
+            handler.handler({"input": {"force": "true", "image_base64": base64.b64encode(PNG).decode()}})
 
     def test_all_mode_returns_image_and_removes_job_files(self) -> None:
         observed: list[Path] = []
@@ -39,7 +39,7 @@ class RunpodHandlerTests(unittest.TestCase):
         package = types.ModuleType("remove_ai_watermarks")
         package.__path__ = []  # type: ignore[attr-defined]
         with patch.dict(sys.modules, {"remove_ai_watermarks": package, "remove_ai_watermarks.api": api}):
-            result = runpod_handler.handler(
+            result = handler.handler(
                 {"input": {"image_base64": base64.b64encode(PNG).decode(), "force": True}}
             )
 

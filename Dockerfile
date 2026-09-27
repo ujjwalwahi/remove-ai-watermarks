@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /opt/remove-ai-watermarks
 COPY pyproject.toml README.md LICENSE ./
 COPY src/ ./src/
-COPY runpod_handler.py ./runpod_handler.py
+COPY handler.py ./handler.py
 
 # Match the PyTorch CUDA wheel to the CUDA 12.8 base image before resolving the
 # qwen-zimage extra, which includes the visible pixel and diffusion runtimes.
@@ -27,6 +27,7 @@ RUN python -m pip install --upgrade pip \
     && python -m pip install torch==2.9.1 torchvision==0.24.1 \
         --index-url https://download.pytorch.org/whl/cu128 \
     && python -m pip install '.[qwen-zimage]' 'runpod>=1.7,<2' \
-    && python -c 'import torch; assert torch.version.cuda == "12.8"'
+    && python -c 'import torch; assert torch.version.cuda == "12.8"' \
+    && python -c 'import runpod; assert callable(runpod.serverless.start)'
 
-CMD ["python", "-u", "/opt/remove-ai-watermarks/runpod_handler.py"]
+CMD ["python", "-u", "/opt/remove-ai-watermarks/handler.py"]
