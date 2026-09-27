@@ -42,6 +42,10 @@ _refs/
 yolov8n.pt
 .coverage
 
+# Local Runpod batch inputs and results
+/input/
+/output/
+
 # Local prototype and evaluation outputs (research harnesses and probes); the
 # durable record of an oracle verdict lives under data/evaluations/
 out/

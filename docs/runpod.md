@@ -28,11 +28,18 @@ downloaded model weights. Diffusion model loading can be slow on the first
 request. Set `HF_TOKEN` as an endpoint environment variable if a chosen model
 requires access.
 
-For persistent model downloads, attach a network volume and set endpoint
-environment variables `HF_HOME=/runpod-volume/huggingface` and
+For `all` mode, attach a network volume with at least 150 GB free and set
+endpoint environment variables `HF_HOME=/runpod-volume/huggingface` and
 `XDG_CACHE_HOME=/runpod-volume/.cache`. Runpod mounts an attached Serverless
-network volume at `/runpod-volume`. Without one, the image uses the worker's
-ephemeral `/root/.cache`.
+network volume at `/runpod-volume`. The Qwen-Image-2512 and Z-Image-Turbo
+model repositories alone contain roughly 91 GB of weights, with additional
+ControlNet and LoRA weights plus download and offload working space. Without a
+volume, the image uses the worker's ephemeral `/root/.cache`; a failed model
+download can surface as a Hugging Face Xet "Background writer channel closed"
+error. Check the worker logs and available disk space if that happens. Increase
+the endpoint's execution timeout above the default 600 seconds for the first
+model download; 3600 seconds is a starting point, then tune it after a
+successful job.
 
 ## Send a request
 
@@ -94,6 +101,25 @@ The output also reports `visible_status`, `invisible_status`, and
 regeneration ran; it is not a clean-image verdict. For a quick image, `/runsync`
 can return the output directly. Use `/run` for diffusion jobs that may take
 longer than the synchronous wait period.
+
+## Process a folder
+
+From the repository root, set your Runpod API key and run:
+
+```bash
+export RUNPOD_API_KEY="your-api-key"
+python3 batch_runner.py
+```
+
+The script submits each PNG, JPEG, or WebP file in `input/` as a separate `/run`
+job, waits for it, and saves the result with the same filename in `output/`.
+It skips completed files when restarted and resumes an in-progress job using
+the ID saved under `output/.runpod_jobs/`. It stops after a failed job so an
+endpoint problem does not fail the rest of the folder. Use `--limit 1` to test
+one image, `--dry-run` to list pending files, `--mode visible` or
+`--mode metadata` to select a stage, and
+`--endpoint-id` for a different endpoint. Processing is sequential, so a large
+folder can take a while.
 
 Invalid input and processing failures cause a failed Runpod job. The handler
 cleans up per-job temporary files. It does not accept remote URLs or video files.
